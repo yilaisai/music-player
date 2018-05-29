@@ -8,6 +8,7 @@
   import MusicList from 'components/music-list/music-list'
   import {mapGetters} from 'vuex'
   import {getSingerDetail} from 'api/singer'
+  import {getAlbumDetail} from 'api/album'
   import {ERR_OK} from 'api/conf'
   import {createSong} from 'common/js/song'
 
@@ -37,11 +38,21 @@
           this.$router.push('/singer')
           return
         }
-        getSingerDetail(this.singer.id).then((res) => {
-          if (res.code === ERR_OK) {
-            this.songs = this._normalizeSongs(res.data.list)
-          }
-        })
+        if (this.singer.album) {
+          getAlbumDetail(this.singer.id).then((res) => {
+            // 专辑
+            if (res.code === ERR_OK) {
+              this.songs = this._normalizeAlbum(res.data.list)
+            }
+          })
+        } else {
+          getSingerDetail(this.singer.id).then((res) => {
+            // 歌手
+            if (res.code === ERR_OK) {
+              this.songs = this._normalizeSongs(res.data.list)
+            }
+          })
+        }
       },
       _normalizeSongs (list) {
         let ret = []
@@ -49,6 +60,15 @@
           let {musicData} = item
           if (musicData.albummid && musicData.songid) {
             ret.push(createSong(musicData))
+          }
+        })
+        return ret
+      },
+      _normalizeAlbum (list) {
+        let ret = []
+        list.forEach((item) => {
+          if (item.albummid && item.songid) {
+            ret.push(createSong(item))
           }
         })
         return ret

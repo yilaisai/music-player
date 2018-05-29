@@ -64,7 +64,7 @@
               <i class="icon-next" @click="next"></i>
             </div>
             <div class="icon i-right">
-              <i class="icon-favorite"></i>
+              <i :class="getFavoriteIcon(currentSong)" @click.stop="toggleFavorite(currentSong)"></i>
             </div>
           </div>
         </div>
@@ -85,31 +85,32 @@
           </progress-circle>
         </div>
         <div class="control">
-          <i class="icon-playlist"></i>
+          <i class="icon-playlist" @click.stop="showPlayList"></i>
         </div>
       </div>
     </transition>
     <audio ref="audio" :src="currentSong.url"  @play="ready" @error="error" @timeupdate="updateTime"  @ended="end"></audio>
+    <play-list ref="playList"></play-list>
   </div>
 </template>
 
 <script>
-  import {mapGetters, mapMutations} from 'vuex'
+  import {mapGetters, mapMutations, mapActions} from 'vuex'
   import animations from 'create-keyframe-animation'
   import ProgressBar from 'base/progress-bar/progress-bar'
   import ProgressCircle from 'base/progress-circle/progress-circle'
+  import PlayList from 'components/play-list/play-list'
   import {playMode} from 'common/js/config'
-  import {shuffle} from 'common/js/util'
   import Lyric from 'lyric-parser'
   import Scroll from 'base/scroll/scroll'
   import {prefixStyle} from 'common/js/dom'
-  import {playlistMixin} from 'common/js/mixin'
+  import {playerMixin} from 'common/js/mixin'
 
   const transform = prefixStyle('transform')
   const transition = prefixStyle('transition')
 
   export default {
-    mixin: [playlistMixin],
+    mixins: [playerMixin],
     data () {
       return {
         songReady: false,
@@ -134,9 +135,6 @@
       disableCls () {
         return this.songReady ? '' : 'disable'
       },
-      iconMode () {
-        return this.mode === playMode.random ? 'icon-random' : this.mode === playMode.loop ? 'icon-loop' : 'icon-sequence'
-      },
       percent () {
         return this.currentTime / this.currentSong.duration
       },
@@ -144,10 +142,7 @@
         'playing',
         'currentIndex',
         'fullScreen',
-        'currentSong',
-        'playlist',
-        'mode',
-        'sequenceList'
+        'playlist'
       ])
     },
     created () {
@@ -228,23 +223,8 @@
           this.currentLyric.seek(currentTime * 1000)
         }
       },
-      changeMode () {
-        let mode = (this.mode + 1) % 3
-        this.setMode(mode)
-        let list = null
-        if (this.mode === playMode.random) {
-          list = shuffle(this.sequenceList)
-        } else {
-          list = this.sequenceList
-        }
-        this.resetPlayList(list)
-        this.setPlayList(list)
-      },
-      resetPlayList (list) {
-        let index = list.findIndex((item) => {
-          return item.id === this.currentSong.id
-        })
-        this.setCurrentIndex(index)
+      showPlayList () {
+        this.$refs.playList.show()
       },
       getLyric () {
         this.currentSong.getLyric().then((res) => {
@@ -423,11 +403,11 @@
       },
       ...mapMutations({
         setFullScreen: 'SET_FULLSCREEN',
-        setPlayingState: 'SET_PLAYING',
-        setCurrentIndex: 'SET_CURRENT_INDEX',
-        setMode: 'SET_MODE',
-        setPlayList: 'SET_PLAYLIST'
-      })
+        setPlayingState: 'SET_PLAYING'
+      }),
+      ...mapActions([
+        'savePlayHistory'
+      ])
     },
     watch: {
       currentSong (newSong, oldSong) {
@@ -445,6 +425,7 @@
         }
         clearTimeout(this.timer)
         this.getLyric()
+        this.savePlayHistory(this.currentSong)
         this.timer = setTimeout(() => {
           this.$refs.audio.play()
         }, 1000)
@@ -459,7 +440,8 @@
     components: {
       ProgressBar,
       ProgressCircle,
-      Scroll
+      Scroll,
+      PlayList
     }
   }
 </script>
